@@ -1,0 +1,36 @@
+Date: 2026-08-15
+Author: automated update by GitHub Copilot
+Change-ID: change_5_uv_setup
+Status: completed
+
+## Purpose
+
+Document adding developer runtime support for `uv`/`uvicorn`, a dev-runner script, and CI smoke check.
+
+## Scope / Files Changed
+- `backend/pyproject.toml` (added dev deps `uv` and `uvicorn[standard]`)
+- `backend/UV_SETUP.md` (added)
+- `backend/run_dev.sh` (added)
+- `.github/workflows/ci.yml` (added)
+
+## Summary
+
+This change adds optional dev dependencies for lightweight PEP-723 runner `uv` and the ASGI server `uvicorn`.
+It also documents usage in `UV_SETUP.md`, provides a small `run_dev.sh` helper, and adds a CI workflow that performs a smoke import test.
+
+## Migration / Deployment Steps
+1. Developers can install dev extras: `pip install -e backend[dev]`.
+2. Run locally with `./backend/run_dev.sh` (make executable) or follow `backend/UV_SETUP.md`.
+
+## Rollback Steps
+1. Revert this change and remove the two dev dependencies from `pyproject.toml`.
+
+## Related PR / Issue
+- n/a
+
+## Verification Steps
+- `PYTHONPATH=backend/src python3 -c "import mendxai; print('OK')"`
+- CI workflow runs the same smoke import check on push/PR.
+
+## Notes
+- These are optional dependencies; production runtime does not require them.

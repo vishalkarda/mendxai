@@ -1,0 +1,25 @@
+Date: 2026-08-15
+Author: automated update
+Change-ID: change_6_notebooks_data_root
+Status: completed
+
+## Purpose
+
+Make the notebooks robust to data location (repo root vs backend/data) and add a runnable dataset audit notebook for the Lanzhou audio data.
+
+## Scope / Files Changed
+- `backend/notebooks/01_dataset_audit.ipynb` (populated with audit code and robust data-root discovery)
+- `backend/notebooks/02_clinical_metadata_eda.ipynb` (added `find_data_root()` snippet)
+- `backend/notebooks/03_audio_signal_eda.ipynb` (added `find_data_root()` snippet)
+- `backend/notebooks/04_feature_baseline_eda.ipynb` (added `find_data_root()` snippet)
+- `backend/notebooks/README.md` (new)
+
+## Summary
+
+This change adds a small `find_data_root()` pattern to notebooks so they locate `data/` whether present at repository root or under `backend/`. It also populates `01_dataset_audit.ipynb` with a ready-to-run audit that counts subjects and recordings and attempts to read the subject metadata workbook if present.
+
+## Verification Steps
+- Open `backend/notebooks/01_dataset_audit.ipynb` and run cells; ensure it locates `data/audio_lanzhou_2015` and prints summary tables.
+
+## Notes
+- No code in `src/` was modified. Notebooks now prefer a top-level `data/` directory when available.

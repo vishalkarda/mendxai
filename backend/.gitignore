@@ -23,10 +23,12 @@ dist/
 *~
 
 # Data (keep structure, ignore contents)
-data/raw/MDD/*.wav
-data/raw/NC/*.wav
-data/processed/*.csv
-data/metadata/*.xlsx
+data/
+# specific patterns (kept for reference)
+# data/raw/MDD/*.wav
+# data/raw/NC/*.wav
+# data/processed/*.csv
+# data/metadata/*.xlsx
 
 # Results
 results/models/*.pkl
