@@ -1,0 +1,3 @@
+data_dir: backend/data
+dataset_subdir: audio_lanzhou_2015
+metadata_workbook: subjects_information_audio_lanzhou_2015.xlsx
