@@ -1,16 +1,16 @@
 Notebooks usage
 
-Run notebooks from the repository root (recommended) so the notebooks locate `data/` at the repo root.
+Run notebooks from the repository root (recommended) so the notebooks locate `data/` under `backend/data`.
 
 Examples:
 
 ```bash
-# open Jupyter Lab from repo root
+# install dev deps (optional for notebooks)
 pip install -e backend[dev]
 cd /path/to/mendx.ai
 jupyter lab
 ```
 
 Notes
-- Notebooks include a `find_data_root()` helper to discover the `data/` directory at either the repository root or `backend/data`.
-- If you prefer to run from `backend/`, ensure the `data/` directory exists under `backend/` or set the environment/working directory appropriately.
+- The project data is expected to live at `backend/data/` (specifically `backend/data/audio_lanzhou_2015`).
+- Notebooks have been updated to use the fixed `backend/data` location; ensure you've copied the dataset there before running.
