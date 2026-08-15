@@ -9,7 +9,7 @@ from typing import Dict, List
 import pandas as pd
 from tqdm import tqdm
 
-from .config import config
+from ..core.config import config
 
 
 class FeatureExtractor:

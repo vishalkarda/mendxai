@@ -11,14 +11,14 @@ Usage:
 import argparse
 from pathlib import Path
 
-from src.depression_detector import (
+from mendxai import (
     DataLoader,
     FeatureExtractor,
     ModelTrainer,
     ModelEvaluator,
     config
 )
-from src.depression_detector.data_loader import verify_data_structure
+from mendxai.ml.data_loader import verify_data_structure
 
 
 def extract_features():
@@ -134,15 +134,15 @@ def evaluate_models():
         print(f"\nLoading {model_name}...")
         
         if model_name == "decision_tree":
-            from src.depression_detector.models.decision_tree import DecisionTreeModel
+            from mendxai.ml.models.decision_tree import DecisionTreeModel
             model = DecisionTreeModel()
             model.load(models_dir / "decision_tree.pkl")
         elif model_name == "xgboost":
-            from src.depression_detector.models.xgboost_model import XGBoostModel
+            from mendxai.ml.models.xgboost_model import XGBoostModel
             model = XGBoostModel()
             model.load(models_dir / "xgboost.pkl")
         elif model_name == "neural_net":
-            from src.depression_detector.models.neural_net import NeuralNetModel
+            from mendxai.ml.models.neural_net import NeuralNetModel
             input_dim = X_test.shape[1]
             model = NeuralNetModel(input_dim=input_dim)
             model.load(models_dir / "neural_net.pth")

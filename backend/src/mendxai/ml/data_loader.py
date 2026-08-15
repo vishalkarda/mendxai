@@ -8,7 +8,7 @@ import pandas as pd
 import numpy as np
 from tqdm import tqdm
 
-from .config import config
+from ..core.config import config
 
 
 class DataLoader:

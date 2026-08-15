@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 
-from .config import config
+from ..core.config import config
 from .models.decision_tree import DecisionTreeModel
 from .models.xgboost_model import XGBoostModel
 from .models.neural_net import NeuralNetModel

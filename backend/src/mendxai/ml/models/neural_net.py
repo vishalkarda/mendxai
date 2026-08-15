@@ -7,7 +7,7 @@ import numpy as np
 from pathlib import Path
 from typing import Tuple
 
-from ..config import config
+from ...core.config import config
 
 
 class DepressionNet(nn.Module):

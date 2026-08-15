@@ -27,23 +27,32 @@ depression-voice-detection/
 ├── .gitignore
 ├── .python-version
 ├── main.py
+├── notebooks/
+│   ├── 01_dataset_audit.ipynb
+│   ├── 02_clinical_metadata_eda.ipynb
+│   ├── 03_audio_signal_eda.ipynb
+│   └── 04_feature_baseline_eda.ipynb
 ├── data/
 │   ├── raw/MDD/
 │   ├── raw/NC/
 │   ├── processed/
 │   └── metadata/
-├── src/depression_detector/
-│   ├── __init__.py          (use __init__-main.py content)
-│   ├── config.py
-│   ├── data_loader.py
-│   ├── feature_extractor.py
-│   ├── trainer.py
-│   ├── evaluator.py
-│   └── models/
-│       ├── __init__.py      (use __init__-models.py content)
-│       ├── decision_tree.py
-│       ├── xgboost_model.py
-│       └── neural_net.py
+├── src/mendxai/
+│   ├── __init__.py
+│   ├── core/
+│   │   ├── __init__.py
+│   │   └── config.py
+│   └── ml/
+│       ├── __init__.py
+│       ├── data_loader.py
+│       ├── feature_extractor.py
+│       ├── trainer.py
+│       ├── evaluator.py
+│       └── models/
+│           ├── __init__.py
+│           ├── decision_tree.py
+│           ├── xgboost_model.py
+│           └── neural_net.py
 └── results/
     ├── models/
     ├── logs/
@@ -59,7 +68,7 @@ uv venv
 source .venv/bin/activate
 
 # Install project
-uv pip install -e .
+uv pip install -e ".[dev]"
 ```
 
 This will install all dependencies automatically from pyproject.toml.
@@ -118,7 +127,7 @@ python main.py --stage evaluate
 ### Error: "No audio files found"
 **Solution:** Check data directory structure matches expected format.
 ```bash
-python -c "from src.depression_detector.data_loader import verify_data_structure; verify_data_structure()"
+python -c "from mendxai.ml.data_loader import verify_data_structure; verify_data_structure()"
 ```
 
 ### Error: "librosa installation failed"
@@ -188,7 +197,7 @@ open results/figures/
    ```
 
 3. **Feature engineering:**
-   - Modify `src/depression_detector/feature_extractor.py`
+   - Modify `src/mendxai/ml/feature_extractor.py`
    - Add new audio features
    - Re-run extraction
 
@@ -260,7 +269,7 @@ Expected final accuracy: **70-85%** (based on MODMA literature)
 
 Check these first:
 1. README.md - Full documentation
-2. src/depression_detector/config.py - All configurable parameters
+2. src/mendxai/core/config.py - All configurable parameters
 3. Error messages - Usually self-explanatory with fix suggestions
 
 Good luck with your depression detection model! 🚀

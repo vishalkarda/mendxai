@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from pathlib import Path
 
-from .config import config
+from ..core.config import config
 
 
 class ModelEvaluator:
