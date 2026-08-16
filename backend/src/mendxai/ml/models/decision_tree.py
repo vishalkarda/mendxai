@@ -2,7 +2,7 @@
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.model_selection import GridSearchCV
 import numpy as np
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import joblib
 from pathlib import Path
 
@@ -11,12 +11,13 @@ from ...core.config import config
 
 class DecisionTreeModel:
     """Decision Tree classifier wrapper."""
-    
-    def __init__(self):
+
+    def __init__(self, class_weight: Optional[str] = None):
         self.model = DecisionTreeClassifier(
             max_depth=config.model.dt_max_depth,
             min_samples_split=config.model.dt_min_samples_split,
             random_state=config.model.dt_random_state,
+            class_weight=class_weight,
         )
         self.is_trained = False
     

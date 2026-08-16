@@ -71,7 +71,7 @@ class ModelEvaluator:
         print(f"\nClassification Report:")
         print(classification_report(
             y_test, y_pred, 
-            target_names=['NC (Healthy)', 'MDD (Depression)']
+            target_names=['HC (Healthy)', 'MDD (Depression)']
         ))
         
         return metrics
@@ -119,8 +119,8 @@ class ModelEvaluator:
         plt.figure(figsize=(8, 6))
         sns.heatmap(
             cm, annot=True, fmt='d', cmap='Blues',
-            xticklabels=['NC', 'MDD'],
-            yticklabels=['NC', 'MDD']
+            xticklabels=['HC', 'MDD'],
+            yticklabels=['HC', 'MDD']
         )
         plt.title(f'Confusion Matrix - {model_name}')
         plt.ylabel('True Label')

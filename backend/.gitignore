@@ -32,6 +32,7 @@ data/
 results/models/*.pkl
 results/models/*.pth
 results/logs/*.log
+results/logs/*.csv
 results/figures/*.png
 
 # Jupyter

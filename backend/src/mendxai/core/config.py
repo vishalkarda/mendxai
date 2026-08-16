@@ -93,6 +93,13 @@ class ModelConfig:
     xgb_learning_rate: float = 0.1
     xgb_random_state: int = 42
 
+    # Gradient Boosting (sklearn HistGradientBoostingClassifier — stand-in for
+    # XGBoost when xgboost/libomp isn't available; see gradient_boosting_model.py)
+    gb_max_iter: int = 100
+    gb_max_depth: int = 6
+    gb_learning_rate: float = 0.1
+    gb_random_state: int = 42
+
     # Neural Network
     nn_hidden_dims: List[int] = None
     nn_dropout: float = 0.3

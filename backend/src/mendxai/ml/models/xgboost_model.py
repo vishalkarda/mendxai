@@ -19,7 +19,6 @@ class XGBoostModel:
             learning_rate=config.model.xgb_learning_rate,
             random_state=config.model.xgb_random_state,
             eval_metric='logloss',
-            use_label_encoder=False,
         )
         self.is_trained = False
     
@@ -84,7 +83,6 @@ class XGBoostModel:
             xgb.XGBClassifier(
                 random_state=config.model.xgb_random_state,
                 eval_metric='logloss',
-                use_label_encoder=False,
             ),
             param_grid,
             cv=cv,
