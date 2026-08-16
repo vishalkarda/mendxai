@@ -188,7 +188,7 @@ class FeatureExtractor:
         
         Args:
             audio_paths: List of paths to audio files
-            labels: List of labels (1=MDD, 0=NC)
+            labels: List of labels (1=MDD, 0=HC)
             
         Returns:
             DataFrame with features and labels
@@ -213,7 +213,7 @@ class FeatureExtractor:
         print(f"  Extracted features for {len(df)} files")
         print(f"  Feature dimension: {len(df.columns) - 2}")  # -2 for label and file_path
         print(f"  MDD samples: {sum(valid_labels)}")
-        print(f"  NC samples: {len(valid_labels) - sum(valid_labels)}")
+        print(f"  HC samples: {len(valid_labels) - sum(valid_labels)}")
         
         return df
     
