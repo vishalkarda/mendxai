@@ -1,10 +1,10 @@
 # mendx.ai
 
 Project summary
--- Purpose: develop and evaluate voice-based methods for detecting depression and estimating severity from speech recordings. The repository contains exploratory notebooks, a Python backend (ML pipelines and service), and scaffolding for a future frontend.
+-- Purpose: develop and evaluate voice-based biomarker methods for screening and severity assessment across multiple conditions from speech recordings. Depression is the first disease module; the pipeline is designed to extend to additional conditions (e.g., schizophrenia) over time. The repository contains exploratory notebooks, a Python backend (ML pipelines and service), and scaffolding for a future frontend.
 
 Problem statement
--- Clinical problem: detect depressive disorder and estimate severity using non-invasive audio recordings. The goal is to provide reproducible baselines, rigorous leakage-aware evaluation (patient-level splits), and clear EDA-driven dataset decisions before model changes.
+-- Clinical problem: detect and estimate severity of disease conditions using non-invasive audio recordings, one disease module at a time — starting with depressive disorder. The goal is to provide reproducible baselines, rigorous leakage-aware evaluation (patient-level splits), and clear EDA-driven dataset decisions before model changes, in a way that generalizes across future disease modules.
 
 Key components
 - Backend: FastAPI service and ML package under `backend/src/mendxai/` (models, data loading, training, evaluation).

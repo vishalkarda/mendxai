@@ -1,7 +1,7 @@
 [project]
-name = "depression-detector"
+name = "mendxai"
 version = "0.1.0"
-description = "Voice-based depression detection using machine learning"
+description = "Multi-disease voice biomarker platform for screening and severity assessment from speech; depression is the first disease module"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [

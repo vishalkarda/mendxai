@@ -2,6 +2,8 @@
 
 Durable reference for everything about this dataset that isn't obvious from the code. Read this before writing or reviewing any EDA or modeling work. Facts here were established on 2026-08-16 by reading the dataset paper, the companion methods paper, and the metadata workbook directly (see `backend/dev/change_8_2026-08-16.md`).
 
+For the full narrative explanation behind these facts — paragraph-level detail on what each column means and why, the complete MDD/HC/NC terminology history, an EDA findings recap, prior-art modeling methodology, and license/compliance details — see [`backend/docs/data_research/`](../docs/data_research/README.md).
+
 ## 1. Dataset identity & source
 
 - Raw audio: `backend/data/audio_lanzhou_2015/<8-digit-subject-id>/01.wav`..`29.wav`

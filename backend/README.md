@@ -1,6 +1,6 @@
-# Voice Biomarker Baseline for Depression
+# Voice Biomarker Platform — Depression Module (Phase 1)
 
-This repository is being developed as a notebook-first research pipeline for patient-level depression detection from voice data, with a later roadmap toward severity estimation and additional disorders such as schizophrenia.
+This repository is being developed as a notebook-first research pipeline for a multi-disease voice biomarker platform. Depression is the first disease module — patient-level detection and severity estimation from voice data — with a roadmap toward additional disorders such as schizophrenia.
 
 ## Current Direction
 
