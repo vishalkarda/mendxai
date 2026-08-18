@@ -11,7 +11,10 @@ from pathlib import Path
 
 import pandas as pd
 
+from ..core.logging_utils import get_logger
 from .data_loader import classify_task
+
+logger = get_logger("aggregation")
 
 
 def build_subject_level_features(features_df: pd.DataFrame) -> pd.DataFrame:
@@ -43,5 +46,13 @@ def build_subject_level_features(features_df: pd.DataFrame) -> pd.DataFrame:
     subject_label = df.groupby("subject_id")["label"].first()
     subject_df = agg.join(subject_label).reset_index()
     subject_df["type"] = subject_df["label"].map({1: "MDD", 0: "HC"})
+
+    n_mdd = int((subject_df["type"] == "MDD").sum())
+    n_hc = int((subject_df["type"] == "HC").sum())
+    logger.info(
+        f"build_subject_level_features: {len(subject_df)} subjects "
+        f"({n_mdd} MDD, {n_hc} HC), {len(feature_cols) * 2} aggregated feature columns "
+        f"from {len(feature_cols)} input features"
+    )
 
     return subject_df

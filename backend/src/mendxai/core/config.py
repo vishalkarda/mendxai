@@ -99,6 +99,11 @@ class ModelConfig:
     gb_max_depth: int = 6
     gb_learning_rate: float = 0.1
     gb_random_state: int = 42
+    # sklearn's default (20) needs >=40 training samples to ever split a leaf —
+    # with cross_validate()'s inner train/val split, a fold's inner-train set
+    # can be as small as ~32 samples, so the default silently produces a
+    # constant (unsplit) model. Lowered for this dataset's scale.
+    gb_min_samples_leaf: int = 10
 
     # Neural Network
     nn_hidden_dims: List[int] = None
@@ -121,6 +126,11 @@ class TrainingConfig:
     val_size: float = 0.1  # From training set
     random_state: int = 42
     n_folds: int = 5  # For cross-validation
+
+    # Inner validation split carved from each CV fold's training portion —
+    # used for neural-net early stopping and for tuning the classification
+    # threshold, so neither ever sees the fold's held-out test data.
+    cv_inner_val_size: float = 0.2
 
     # Output paths (resolved in __post_init__, relative to repo root)
     models_dir: Optional[Path] = None

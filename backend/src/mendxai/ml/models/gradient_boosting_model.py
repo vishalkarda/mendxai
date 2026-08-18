@@ -26,6 +26,7 @@ class GradientBoostingModel:
             max_depth=config.model.gb_max_depth,
             learning_rate=config.model.gb_learning_rate,
             random_state=config.model.gb_random_state,
+            min_samples_leaf=config.model.gb_min_samples_leaf,
         )
         self.is_trained = False
 
@@ -95,7 +96,10 @@ class GradientBoostingModel:
 
         print("\nPerforming hyperparameter tuning for Gradient Boosting...")
         grid_search = GridSearchCV(
-            HistGradientBoostingClassifier(random_state=config.model.gb_random_state),
+            HistGradientBoostingClassifier(
+                random_state=config.model.gb_random_state,
+                min_samples_leaf=config.model.gb_min_samples_leaf,
+            ),
             param_grid,
             cv=cv,
             scoring='accuracy',

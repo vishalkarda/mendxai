@@ -1,17 +1,22 @@
 """Model training orchestration."""
-from sklearn.model_selection import train_test_split, RepeatedStratifiedKFold
-from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import (
-    accuracy_score, precision_score, recall_score, f1_score,
-    roc_auc_score, confusion_matrix,
-)
-from sklearn.utils.class_weight import compute_sample_weight
-import pandas as pd
-import numpy as np
+import contextlib
+import io
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import train_test_split, RepeatedStratifiedKFold
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import (
+    accuracy_score, precision_score, recall_score, f1_score, fbeta_score,
+    roc_auc_score, confusion_matrix,
+)
+from sklearn.utils.class_weight import compute_sample_weight
+
 from ..core.config import config
+from ..core.logging_utils import get_logger
 from .models.decision_tree import DecisionTreeModel
 from .models.gradient_boosting_model import GradientBoostingModel
 from .models.neural_net import NeuralNetModel
@@ -26,6 +31,8 @@ except Exception:
     # decision-tree/gradient-boosting/neural-net training must not be blocked;
     # only code paths that actually request 'xgboost' will raise, with a clear message.
     XGBoostModel = None
+
+logger = get_logger("trainer")
 
 
 class ModelTrainer:
@@ -269,17 +276,61 @@ class ModelTrainer:
         else:
             raise ValueError(f"Unknown model: {model_name}")
 
-    def _fit_model(self, model, model_name: str, X_train: np.ndarray, y_train: np.ndarray, balanced: bool = True):
-        """Fit a model built by `_build_model`, applying class balancing where the
-        model type supports it (decision_tree: class_weight, set at construction;
-        gradient_boosting: sample_weight, since HistGradientBoostingClassifier has
-        no class_weight param; neural_net: unweighted — n is small enough here
-        that class weighting wasn't judged necessary, see backend/notebooks/05_baseline_model.ipynb)."""
-        if model_name == 'gradient_boosting' and balanced:
+    def _fit_model(
+        self,
+        model,
+        model_name: str,
+        X_train: np.ndarray,
+        y_train: np.ndarray,
+        X_val: Optional[np.ndarray] = None,
+        y_val: Optional[np.ndarray] = None,
+        balanced: bool = True,
+    ):
+        """Fit a model built by `_build_model`.
+
+        - neural_net: trained with (X_val, y_val) when provided, enabling the
+          early-stopping logic already built into NeuralNetModel.train() (via
+          config.model.nn_early_stopping_patience). Without a val set it just
+          trains the fixed number of epochs, same as before.
+        - gradient_boosting: sample_weight balancing, since
+          HistGradientBoostingClassifier has no class_weight param.
+        - decision_tree: class_weight is set at construction (_build_model), not here.
+        """
+        if model_name == 'neural_net':
+            model.train(X_train, y_train, X_val, y_val)
+        elif model_name == 'gradient_boosting' and balanced:
             sample_weight = compute_sample_weight('balanced', y_train)
             model.train(X_train, y_train, sample_weight=sample_weight)
         else:
             model.train(X_train, y_train)
+
+    @staticmethod
+    def _specificity(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+        cm = confusion_matrix(y_true, y_pred, labels=[0, 1])
+        tn, fp = cm[0, 0], cm[0, 1]
+        return tn / (tn + fp) if (tn + fp) > 0 else 0.0
+
+    @staticmethod
+    def _find_best_threshold(y_true: np.ndarray, y_proba: np.ndarray, beta: float = 2.0) -> float:
+        """Scan candidate thresholds and return the one maximizing F-beta.
+
+        beta=2 (F2) weights recall roughly twice as heavily as precision —
+        appropriate for a screening context where missing a true case (false
+        negative) is costlier than a false alarm. Must only ever be called with
+        y_true/y_proba from data the model wasn't evaluated against for the
+        final reported metrics (an inner validation split, not the CV test
+        fold), otherwise the threshold is tuned against the same data used to
+        judge it — a leakage/overfitting risk, not a hard error but a silent
+        source of over-optimistic numbers.
+        """
+        thresholds = np.linspace(0.05, 0.95, 19)
+        best_t, best_score = 0.5, -1.0
+        for t in thresholds:
+            preds = (y_proba >= t).astype(int)
+            score = fbeta_score(y_true, preds, beta=beta, zero_division=0)
+            if score > best_score:
+                best_score, best_t = score, t
+        return best_t
 
     def cross_validate(
         self,
@@ -289,6 +340,8 @@ class ModelTrainer:
         n_repeats: int = 20,
         exclude_cols: Optional[list] = None,
         balanced: bool = True,
+        tune_threshold: bool = True,
+        log_run_history: bool = True,
     ) -> pd.DataFrame:
         """
         Repeated stratified k-fold cross-validation.
@@ -307,6 +360,15 @@ class ModelTrainer:
         backend/docs/data_research/05_companion_paper_methodology.md, which used
         4-fold x 50 repeats).
 
+        Within each fold, the training portion is further split into an inner
+        train/validation set (config.training.cv_inner_val_size). The inner
+        validation set is used for two things, neither of which ever touches
+        the fold's held-out test data: (1) neural-net early stopping, and (2)
+        tuning the classification threshold to maximize F2 (recall-weighted)
+        rather than defaulting to 0.5. Both the default-threshold and
+        tuned-threshold metrics are reported per fold, so you can see the
+        actual effect of threshold tuning rather than just trusting it.
+
         Args:
             df: subject-level DataFrame with a 'label' column (1=MDD, 0=HC).
             model_name: 'decision_tree' | 'gradient_boosting' | 'xgboost' | 'neural_net'
@@ -314,9 +376,16 @@ class ModelTrainer:
             exclude_cols: non-feature columns to drop before building X. Defaults
                 to ['subject_id', 'label', 'type'].
             balanced: apply class-weight/sample-weight balancing where supported.
+            tune_threshold: if False, skip threshold tuning (tuned columns will
+                just mirror the default-threshold ones at 0.5).
+            log_run_history: append a summary row to
+                backend/results/logs/run_history.csv (see _append_run_history).
 
         Returns:
-            DataFrame, one row per fold, with accuracy/precision/recall/specificity/f1/auc_roc.
+            DataFrame, one row per fold, with default-threshold metrics
+            (accuracy/precision/recall/specificity/f1/f2/auc_roc) and
+            tuned-threshold metrics (tuned_threshold/accuracy_tuned/
+            precision_tuned/recall_tuned/specificity_tuned/f1_tuned/f2_tuned).
         """
         exclude_cols = exclude_cols or ['subject_id', 'label', 'type']
         feature_cols = [c for c in df.columns if c not in exclude_cols]
@@ -324,9 +393,12 @@ class ModelTrainer:
         y = df['label'].values
 
         n_folds_total = n_splits * n_repeats
-        print(f"\nCross-validating {model_name}: {n_splits}-fold x {n_repeats} repeats ({n_folds_total} fold evaluations)")
-        print(f"  Features: {X.shape[1]}, Samples: {X.shape[0]}")
-        print(f"  MDD: {sum(y)} ({sum(y)/len(y)*100:.1f}%)  HC: {len(y)-sum(y)} ({(len(y)-sum(y))/len(y)*100:.1f}%)")
+        logger.info(
+            f"cross_validate start: model={model_name} n_splits={n_splits} n_repeats={n_repeats} "
+            f"({n_folds_total} fold evaluations) samples={X.shape[0]} features={X.shape[1]} "
+            f"balanced={balanced} tune_threshold={tune_threshold}"
+        )
+        logger.info(f"  MDD: {sum(y)} ({sum(y)/len(y)*100:.1f}%)  HC: {len(y)-sum(y)} ({(len(y)-sum(y))/len(y)*100:.1f}%)")
 
         cv = RepeatedStratifiedKFold(
             n_splits=n_splits, n_repeats=n_repeats, random_state=config.training.random_state
@@ -334,45 +406,120 @@ class ModelTrainer:
 
         fold_results = []
         for fold_idx, (train_idx, test_idx) in enumerate(cv.split(X, y)):
-            X_train, X_test = X[train_idx], X[test_idx]
-            y_train, y_test = y[train_idx], y[test_idx]
+            X_train_fold, X_test_fold = X[train_idx], X[test_idx]
+            y_train_fold, y_test_fold = y[train_idx], y[test_idx]
 
             scaler = StandardScaler()
-            X_train = scaler.fit_transform(X_train)
-            X_test = scaler.transform(X_test)
+            X_train_fold = scaler.fit_transform(X_train_fold)
+            X_test_fold = scaler.transform(X_test_fold)
 
-            model = self._build_model(model_name, input_dim=X.shape[1], balanced=balanced)
-            self._fit_model(model, model_name, X_train, y_train, balanced=balanced)
+            # Inner train/val split from the training fold only — used for NN
+            # early stopping and threshold tuning. The test fold is never
+            # touched by either.
+            X_inner_train, X_inner_val, y_inner_train, y_inner_val = train_test_split(
+                X_train_fold, y_train_fold,
+                test_size=config.training.cv_inner_val_size,
+                random_state=config.training.random_state,
+                stratify=y_train_fold,
+            )
 
-            y_pred = model.predict(X_test)
-            y_proba = model.predict_proba(X_test)
-            y_proba_pos = y_proba[:, 1] if y_proba.ndim > 1 else y_proba
+            # Suppress the per-fold model chatter (e.g. NeuralNetModel's
+            # constructor printing its architecture, "Training Decision
+            # Tree...", or 50 epochs of NN logs) — with 100 folds this would
+            # otherwise flood stdout/the log file; the logger call above and
+            # the summary below are what matter for the historical record.
+            with contextlib.redirect_stdout(io.StringIO()):
+                model = self._build_model(model_name, input_dim=X.shape[1], balanced=balanced)
+                self._fit_model(
+                    model, model_name, X_inner_train, y_inner_train,
+                    X_val=X_inner_val, y_val=y_inner_val, balanced=balanced,
+                )
 
-            cm = confusion_matrix(y_test, y_pred, labels=[0, 1])
-            tn, fp, fn, tp = cm.ravel()
+                if tune_threshold:
+                    y_inner_val_proba = model.predict_proba(X_inner_val)
+                    y_inner_val_proba_pos = y_inner_val_proba[:, 1] if y_inner_val_proba.ndim > 1 else y_inner_val_proba
+                    tuned_threshold = self._find_best_threshold(y_inner_val, y_inner_val_proba_pos, beta=2.0)
+                else:
+                    tuned_threshold = 0.5
+
+            y_test_proba = model.predict_proba(X_test_fold)
+            y_test_proba_pos = y_test_proba[:, 1] if y_test_proba.ndim > 1 else y_test_proba
+
+            y_pred_default = (y_test_proba_pos >= 0.5).astype(int)
+            y_pred_tuned = (y_test_proba_pos >= tuned_threshold).astype(int)
+
+            auc = roc_auc_score(y_test_fold, y_test_proba_pos) if len(set(y_test_fold)) > 1 else float('nan')
 
             fold_results.append({
                 'fold': fold_idx,
-                'accuracy': accuracy_score(y_test, y_pred),
-                'precision': precision_score(y_test, y_pred, zero_division=0),
-                'recall': recall_score(y_test, y_pred, zero_division=0),
-                'specificity': tn / (tn + fp) if (tn + fp) > 0 else 0.0,
-                'f1': f1_score(y_test, y_pred, zero_division=0),
-                'auc_roc': roc_auc_score(y_test, y_proba_pos) if len(set(y_test)) > 1 else float('nan'),
+                'accuracy': accuracy_score(y_test_fold, y_pred_default),
+                'precision': precision_score(y_test_fold, y_pred_default, zero_division=0),
+                'recall': recall_score(y_test_fold, y_pred_default, zero_division=0),
+                'specificity': self._specificity(y_test_fold, y_pred_default),
+                'f1': f1_score(y_test_fold, y_pred_default, zero_division=0),
+                'f2': fbeta_score(y_test_fold, y_pred_default, beta=2.0, zero_division=0),
+                'auc_roc': auc,
+                'tuned_threshold': tuned_threshold,
+                'accuracy_tuned': accuracy_score(y_test_fold, y_pred_tuned),
+                'precision_tuned': precision_score(y_test_fold, y_pred_tuned, zero_division=0),
+                'recall_tuned': recall_score(y_test_fold, y_pred_tuned, zero_division=0),
+                'specificity_tuned': self._specificity(y_test_fold, y_pred_tuned),
+                'f1_tuned': f1_score(y_test_fold, y_pred_tuned, zero_division=0),
+                'f2_tuned': fbeta_score(y_test_fold, y_pred_tuned, beta=2.0, zero_division=0),
             })
 
         results_df = pd.DataFrame(fold_results)
         summary = results_df.drop(columns=['fold']).agg(['mean', 'std'])
-        print(f"\n{model_name} — {n_folds_total}-fold CV results (mean ± std):")
+
+        logger.info(f"cross_validate results: model={model_name} ({n_folds_total} folds)")
         for metric in summary.columns:
-            print(f"  {metric:12s}: {summary.loc['mean', metric]:.4f} ± {summary.loc['std', metric]:.4f}")
+            logger.info(f"  {metric:18s}: {summary.loc['mean', metric]:.4f} +/- {summary.loc['std', metric]:.4f}")
+
+        if log_run_history:
+            self._append_run_history(model_name, n_splits, n_repeats, results_df)
 
         return results_df
+
+    def _append_run_history(self, model_name: str, n_splits: int, n_repeats: int, results_df: pd.DataFrame):
+        """Append one summary row for this cross_validate() call to
+        backend/results/logs/run_history.csv (created with a header on first
+        use). Lets you compare runs over time instead of only ever seeing the
+        latest one — unlike subject_level_cv_comparison.csv, which is
+        overwritten every run."""
+        config.ensure_output_dirs()
+        history_path = config.training.logs_dir / "run_history.csv"
+
+        summary = results_df.drop(columns=['fold']).agg(['mean', 'std'])
+        row = {
+            'timestamp': datetime.now().isoformat(timespec='seconds'),
+            'model': model_name,
+            'n_splits': n_splits,
+            'n_repeats': n_repeats,
+            'n_folds_total': n_splits * n_repeats,
+        }
+        for metric in summary.columns:
+            row[f'{metric}_mean'] = summary.loc['mean', metric]
+            row[f'{metric}_std'] = summary.loc['std', metric]
+
+        row_df = pd.DataFrame([row])
+        if history_path.exists():
+            row_df.to_csv(history_path, mode='a', header=False, index=False)
+        else:
+            row_df.to_csv(history_path, mode='w', header=True, index=False)
+
+        logger.info(f"Appended run to {history_path}")
 
     def fit_final_model(self, df: pd.DataFrame, model_name: str, exclude_cols: Optional[list] = None, balanced: bool = True):
         """Fit one final model on the full subject-level dataset (no held-out
         split) — for saving/deployment after cross_validate() has already
-        established expected performance. Returns (model, fitted_scaler)."""
+        established expected performance. Returns (model, fitted_scaler).
+
+        Note on threshold: this fits on 100% of the data, so there's no
+        held-out portion left to tune a decision threshold against here. Use
+        the tuned_threshold column from a prior cross_validate() call (e.g.
+        its mean across folds) as the recommended operating threshold for this
+        model rather than assuming 0.5 — see backend/notebooks/05_baseline_model.ipynb.
+        """
         exclude_cols = exclude_cols or ['subject_id', 'label', 'type']
         feature_cols = [c for c in df.columns if c not in exclude_cols]
         X = df[feature_cols].values
